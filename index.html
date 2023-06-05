@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      body {
+        margin: 0;
+        padding-bottom: 3rem;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        width: 100%;
+      }
+
+      #chat {
+        width: 80%;
+        float: left;
+      }
+
+      #online {
+        width: 20%;
+        background-color: #e8e8e8;
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        border-left: 1px solid #eee;
+      }
+
+      #form {
+        background: rgba(0, 0, 0, 0.15);
+        padding: 0.25rem;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 20%;
+        display: flex;
+        height: 3rem;
+        box-sizing: border-box;
+        backdrop-filter: blur(10px);
+      }
+
+      #input {
+        border: none;
+        padding: 0 1rem;
+        flex-grow: 1;
+        border-radius: 2rem;
+        margin: 0.25rem;
+      }
+
+      #input:focus {
+        outline: none;
+      }
+
+      #form > button {
+        background: #333;
+        border: none;
+        padding: 0 1rem;
+        margin: 0.25rem;
+        border-radius: 3px;
+        outline: none;
+        color: #fff;
+      }
+
+      #users {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      #users > li {
+        text-decoration: none;
+        padding: 1rem 1.5rem;
+        cursor: pointer;
+      }
+
+      #users > li:focus {
+        background-color: #efefef;
+      }
+
+      #users > li:nth-child(odd) {
+        background: #efefef;
+      }
+
+      #messages {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      #messages > li {
+        padding: 0.5rem 1rem;
+      }
+
+      #messages > li:nth-child(odd) {
+        background: #dfdfdf;
+      }
+    </style>
+  </head>
+
+  <body>
+      <div id="chat">
+        <h1 id="yourname"></h1>
+        <ul id="messages"></ul>
+        <form id="form" action="">
+          <input id="input" autocomplete="off" /><button>Send</button>
+        </form>
+      </div>
+      <div id="online">
+        <ul id="users"></ul>
+      </div>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+      const socket = io();
+      const messages = document.getElementById("messages");
+      const form = document.getElementById("form");
+      const input = document.getElementById("input");
+      const name = document.getElementById("yourname");
+      const users = document.getElementById("users");
+      var userList;
+      var partner;
+      var you;
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (input.value) {
+          socket.emit("chat", input.value);
+          input.value = "";
+        }
+      });
+
+      function addUser(username) {
+        const user = document.createElement("li");
+        user.id = username;
+        user.addEventListener("click", (e) => {
+          e.preventDefault();
+          socket.emit("notify", username, you);
+        })
+        user.textContent = username;
+        users.appendChild(user);
+      }
+
+      socket.on("connected", (user1, user2) => {
+        if (you == user1) {
+          alert(`Connected to ${user2}`)
+          partner = user2;
+        } else if (you == user2) {
+          alert(`Connected to ${user1}`)
+          partner = user1;
+        }
+      })
+
+      socket.on("welcome", (yourname) => {
+        name.textContent = `You are ${yourname}`;
+        you = yourname;
+        socket.emit("getUsers");
+      });
+
+      socket.on("join", (username) => {
+        alert(`${username} join`);
+        addUser(username);
+      });
+
+      socket.on("sendMsg", (from, msg) => {
+        if (from != partner && from != you) return;
+        const item = document.createElement("li");
+        item.textContent = `${from}: ${msg}`;
+        messages.appendChild(item);
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+
+      socket.on("renderUsers", (list) => {
+        console.log(list);
+        list.forEach((username) => addUser(username));
+      })
+
+      socket.on("leave", (name, reason) => {
+        alert(`${name} leave because of ${reason}`);
+        const user = document.getElementById(name);
+        user?.remove();
+      });
+    </script>
+  </body>
+</html>
